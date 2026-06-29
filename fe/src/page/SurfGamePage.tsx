@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+// 🚀 분리해둔 API 파일 불러오기 (경로: src/page 에서 src/api 로 접근)
+import { getTopScores, addScore, type ScoreRecord } from "../api/leaderboard";
 
 type Player = {
   x: number;
@@ -29,8 +31,6 @@ const CANVAS_HEIGHT = 450;
 export default function SurfGamePage() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const animationRef = useRef<number | null>(null);
-
-  // 여기 추가: 캐릭터 이미지 저장용
   const surferImageRef = useRef<HTMLImageElement | null>(null);
 
   const playerRef = useRef<Player>({
@@ -57,6 +57,35 @@ export default function SurfGamePage() {
   const [score, setScore] = useState(0);
   const [gameOver, setGameOver] = useState(false);
 
+  // 🚀 랭킹 시스템을 위한 상태 추가
+  const [playerName, setPlayerName] = useState("");
+  const [leaderboard, setLeaderboard] = useState<ScoreRecord[]>([]);
+  const [isScoreSubmitted, setIsScoreSubmitted] = useState(false);
+
+  // 🚀 리더보드 가져오기 함수
+  const fetchLeaderboard = async () => {
+    const data = await getTopScores();
+    setLeaderboard(data);
+  };
+
+  // 🚀 점수 등록 함수
+  const submitScore = async () => {
+    if (!playerName.trim()) return alert("닉네임을 입력해주세요!");
+
+    const isSuccess = await addScore(playerName, score);
+    if (isSuccess) {
+      setIsScoreSubmitted(true);
+      fetchLeaderboard(); // 성공 시 리더보드 즉시 갱신
+    } else {
+      alert("점수 등록에 실패했습니다.");
+    }
+  };
+
+  // 🚀 컴포넌트 렌더링 시 리더보드 한 번 불러오기
+  useEffect(() => {
+    fetchLeaderboard();
+  }, []);
+
   const resetGame = () => {
     playerRef.current = {
       x: CANVAS_WIDTH / 2 - 45,
@@ -73,9 +102,9 @@ export default function SurfGamePage() {
 
     setScore(0);
     setGameOver(false);
+    setIsScoreSubmitted(false); // 🚀 재시작 시 폼 초기화
   };
 
-  // 여기 추가: 이미지 불러오기
   useEffect(() => {
     const img = new Image();
     img.src = "/surf/image.png";
@@ -92,7 +121,12 @@ export default function SurfGamePage() {
         keysRef.current[e.key as keyof KeyState] = true;
       }
 
-      if (e.key === " " && gameOverRef.current) {
+      // 🚨 점수 입력 중일 때는 스페이스바로 게임이 리셋되지 않도록 방어 로직 추가
+      if (
+        e.key === " " &&
+        gameOverRef.current &&
+        document.activeElement?.tagName !== "INPUT"
+      ) {
         e.preventDefault();
         resetGame();
       }
@@ -140,12 +174,10 @@ export default function SurfGamePage() {
       }
     };
 
-    // 여기 변경: 직접 그리던 캐릭터 말고 이미지 그리기
     const drawPlayer = (player: Player) => {
       const img = surferImageRef.current;
 
       if (!img) {
-        // 이미지 로딩 전 임시 박스
         ctx.fillStyle = "#ffffff";
         ctx.fillRect(player.x, player.y, player.width, player.height);
         return;
@@ -189,12 +221,15 @@ export default function SurfGamePage() {
       ctx.fillText("GAME OVER", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 20);
 
       ctx.font = "20px Arial";
-      ctx.fillText("스페이스바를 눌러 다시 시작", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 25);
+      ctx.fillText(
+        "스페이스바를 눌러 다시 시작",
+        CANVAS_WIDTH / 2,
+        CANVAS_HEIGHT / 2 + 25,
+      );
 
       ctx.textAlign = "left";
     };
 
-    // 여기 변경: 캐릭터 이미지 전체 말고 살짝 안쪽만 충돌 판정
     const isCollision = (player: Player, obstacle: Obstacle) => {
       const playerHitBox = {
         x: player.x + 25,
@@ -295,8 +330,8 @@ export default function SurfGamePage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center text-white">
-      <h1 className="mb-4 text-3xl font-bold">Surf Game</h1>
+    <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center text-white py-10">
+      <h1 className="mb-4 text-3xl font-bold">Surf Game 🏄‍♂️</h1>
 
       <div className="mb-3 text-lg">
         점수: <span className="font-bold text-cyan-300">{score}</span>
@@ -309,16 +344,83 @@ export default function SurfGamePage() {
         className="rounded-2xl border-4 border-white shadow-2xl bg-cyan-400"
       />
 
-      <div className="mt-4 text-center text-sm text-gray-300">방향키로 이동 / 게임오버 시 스페이스바로 재시작</div>
+      <div className="mt-4 text-center text-sm text-gray-300">
+        방향키로 이동 / 게임오버 시 스페이스바로 재시작
+      </div>
 
+      {/* 🚀 게임 오버 시 랭킹 등록 폼 */}
       {gameOver && (
-        <button
-          onClick={resetGame}
-          className="mt-4 rounded-xl bg-cyan-500 px-6 py-3 font-bold text-white hover:bg-cyan-400"
-        >
-          다시 시작
-        </button>
+        <div className="mt-6 flex flex-col items-center bg-slate-800 p-6 rounded-2xl shadow-lg border border-slate-700 w-full max-w-md">
+          <h2 className="text-xl font-bold mb-4">
+            게임 오버! 최종 점수: {score}
+          </h2>
+
+          {!isScoreSubmitted ? (
+            <div className="flex w-full gap-2">
+              <input
+                type="text"
+                maxLength={8}
+                value={playerName}
+                onChange={(e) => setPlayerName(e.target.value)}
+                placeholder="닉네임 (최대 8자)"
+                className="flex-1 px-4 py-2 rounded-xl text-black outline-none focus:ring-2 focus:ring-cyan-400"
+              />
+              <button
+                onClick={submitScore}
+                className="rounded-xl bg-cyan-500 px-6 py-2 font-bold text-white hover:bg-cyan-400 whitespace-nowrap"
+              >
+                점수 등록
+              </button>
+            </div>
+          ) : (
+            <div className="text-green-400 font-bold mb-2">
+              점수가 성공적으로 등록되었습니다! 🏆
+            </div>
+          )}
+
+          <button
+            onClick={resetGame}
+            className="mt-4 w-full rounded-xl bg-slate-600 px-6 py-3 font-bold text-white hover:bg-slate-500 transition-colors"
+          >
+            다시 시작하기
+          </button>
+        </div>
       )}
+
+      {/* 🚀 실시간 리더보드 (TOP 5) */}
+      <div className="mt-8 w-full max-w-md bg-slate-800 p-6 rounded-2xl border border-slate-700">
+        <h3 className="text-xl font-bold text-cyan-300 mb-4 flex items-center justify-center gap-2">
+          👑 명예의 전당 (TOP 5)
+        </h3>
+        <ul className="flex flex-col gap-3">
+          {leaderboard.length === 0 ? (
+            <li className="text-center text-gray-400">
+              아직 등록된 점수가 없습니다.
+            </li>
+          ) : (
+            leaderboard.map((record, index) => (
+              <li
+                key={index}
+                className="flex justify-between items-center bg-slate-700 px-4 py-3 rounded-lg"
+              >
+                <div className="flex items-center gap-3">
+                  <span
+                    className={`font-bold ${
+                      index === 0 ? "text-yellow-400 text-lg" : "text-gray-300"
+                    }`}
+                  >
+                    {index + 1}위
+                  </span>
+                  <span className="font-semibold">{record.name}</span>
+                </div>
+                <span className="font-mono text-cyan-300">
+                  {record.score} pts
+                </span>
+              </li>
+            ))
+          )}
+        </ul>
+      </div>
     </div>
   );
 }
