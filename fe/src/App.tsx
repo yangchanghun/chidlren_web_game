@@ -18,7 +18,7 @@ function App() {
               to="/demo_4"
               className="rounded-lg bg-emerald-800 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-600"
             >
-              퀴즈 게임 페이지
+              퀴즈 페이지
             </Link>
             <Link
               to="/demo_3"
@@ -30,7 +30,7 @@ function App() {
               to="/demo_1"
               className="rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-600"
             >
-              교육 페이지
+              교육 게임 페이지
             </Link>
 
             <Link
@@ -67,8 +67,8 @@ function App() {
                   데모를 선택해주세요
                 </h2>
                 <p className="text-gray-600">
-                  위 메뉴에서 교육 페이지, 슈팅 게임, 서핑 게임 중 하나를
-                  선택하세요.
+                  위 메뉴에서 퀴즈,교육 게임 페이지, 슈팅 게임, 서핑 게임 중
+                  하나를 선택하세요.
                 </p>
               </div>
             }
